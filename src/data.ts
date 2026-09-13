@@ -464,7 +464,7 @@ export function generateInsights(s: State): Insight[] {
     });
   if (r.conversation !== undefined)
     out.push({
-      title: "会話・休憩のプラン",
+      title: "つながりのプラン",
       reason: `${r.date}の会話時間は${r.conversation}分。話したい気分の日に選べる候補です。`,
       sources: source(["conversation"]),
       kind: "social",
@@ -482,7 +482,7 @@ export function generateInsights(s: State): Insight[] {
     });
   if (es.some((e) => e.source === "booking"))
     out.push({
-      title: "健診の予定",
+      title: "健康診断のプラン",
       reason: es.filter((e) => e.source === "booking").at(-1)!.title,
       sources: ["booking"],
       kind: "booking",

@@ -1,3 +1,4 @@
+import Concept from "./Concept";
 import Calendar from "./Calendar";
 import PhotoPanel from "./PhotoPanel";
 import { useState, useEffect, useRef, type FormEvent } from "react";
@@ -71,10 +72,10 @@ function download(name: string, data: string, type = "application/json") {
 }
 const tabs = [
   ["今日", House],
-  ["カレンダー", Clock3],
+  ["ライフログ", Clock3],
   ["傾向", ChartNoAxesCombined],
   ["プラン", ClipboardList],
-  ["設定", Link2],
+  ["機器", Link2],
 ] as const;
 const sourceName = (id: string) =>
   id === "manual" ? "手入力" : (devices.find((d) => d.id === id)?.name ?? id);
@@ -157,6 +158,7 @@ function Chart({
   );
 }
 export default function App() {
+  const [concept, setConcept] = useState(() => { try { return localStorage.getItem("kizuku-concept-v1") !== "seen"; } catch { return true; } });
   const [state, setState] = useState<State | null>(null),
     [demo, setDemo] = useState(false),
     [tab, setTab] = useState(0),
@@ -276,7 +278,7 @@ export default function App() {
     };
     await run(async () => {
       const saved: Entry = demo
-        ? { ...entry, id: edit?.id ?? crypto.randomUUID(), origin: "demo" }
+        ? { ...entry, id: edit?.id ?? crypto.randomUUID(), origin: "manual" }
         : await api<Entry>("records", "POST", entry);
       setState({
         ...state,
@@ -330,7 +332,7 @@ export default function App() {
     rows = daily(all),
     today = rows.find((x) => x.date === day()),
     score = scores(today),
-    insights = state ? generateInsights(state) : [],
+    insights = state ? generateInsights(state).filter(i => i.kind !== "schedule") : [],
     last30 = rows.filter((r) => r.date < day() && r.date >= offset(-30));
   const playbackHour = 7 + (progress * 16) / 60,
     clock = `${String(Math.floor(playbackHour)).padStart(2, "0")}:${String(Math.floor((playbackHour % 1) * 60)).padStart(2, "0")}`,
@@ -379,7 +381,7 @@ export default function App() {
           <section className="heading">
             <div>
 
-              <h1>今日の記録</h1>
+              <h1>今日</h1>
 
             </div>
             <div className="entry-actions"><button disabled={!state?.settings.manual} onClick={()=>{setTab(1);setPhotoOpen(true)}}><Camera size={17}/> 写真を追加</button><button
@@ -417,7 +419,7 @@ export default function App() {
                   <p>
                     {score.total === null
                       ? "睡眠や気分を記録すると、今日の目安が見えてきます。"
-                      : "今日入力された項目から算出しています。"}
+                      : "今日集まった記録から算出しています。"}
                   </p>
                 </div>
               </div>
@@ -428,7 +430,7 @@ export default function App() {
                   [Users, "つながり", score.social, "orange"],
                 ].map(([Icon, label, value, color]) => {
                   const I = Icon as typeof Activity;
-                  return (
+                    return (
                     <div key={String(label)}>
                       <span className={String(color)}>
                         <I size={16} />
@@ -449,7 +451,7 @@ export default function App() {
 
           </div>
           <section className="sectionhead">
-            <h2>過去の平均との比較</h2>
+            <h2>いつもと違う</h2>
             <span>過去30日の記録平均と比較</span>
           </section>
           <div className="metrics">
@@ -488,9 +490,9 @@ export default function App() {
           </div>
           <section className="sectionhead">
             <h2>
-               今日のプラン
+               AI Today
             </h2>
-            <span>記録から算出した、今日の選択肢。</span>
+            <span>今日やるといい、3つの選択肢。</span>
           </section>
           <div className="todaylist">
             {insights.slice(0, 3).map((i, n) => (
@@ -501,7 +503,7 @@ export default function App() {
               >
 
                 <div>
-                  <h3>{i.title}</h3>
+                  <h3>{i.options[0]?.title ?? i.title}</h3>
                   <p>{i.reason}</p>
                   <Sources ids={i.sources} />
                 </div>
@@ -608,7 +610,7 @@ export default function App() {
           <section className="heading">
             <div>
 
-              <h1>カレンダー</h1>
+              <h1>ライフログ</h1>
 
             </div>
             <div className="entry-actions"><button disabled={!state?.settings.manual} onClick={()=>{setTab(1);setPhotoOpen(true)}}><Camera size={17}/> 写真を追加</button><button
@@ -619,7 +621,8 @@ export default function App() {
               <Plus size={18} /> 記録する
             </button></div>
           </section>
-          <Calendar entries={all} plans={state!.plans} selected={selectedDate} onSelect={setSelectedDate} photoDates={photoDates}/>
+          <div className="input-count"><span>あなたが入力した回数</span><strong>{all.filter(e=>e.date===selectedDate&&e.origin==="manual").length}<small>回</small></strong><span>{demo ? "未来の1日を体験中 · 架空のデータ" : "この日の手入力・写真の記録"}</span></div>
+          <details className="history-picker"><summary>カレンダーで過去を見る</summary><Calendar entries={all} plans={state!.plans} selected={selectedDate} onSelect={setSelectedDate} photoDates={photoDates}/></details>
           <PhotoPanel state={state!} demo={demo} date={selectedDate} open={photoOpen} onClose={()=>setPhotoOpen(false)} showList onSaved={async()=>{setState(await api<State>("state"))}} onDates={setPhotoDates} onSettings={()=>setTab(4)}/>
           <div className="dateselect">
             <button
@@ -778,7 +781,7 @@ export default function App() {
           </div>
           <section className="sectionhead">
             <h2>
-               記録の比較
+               機器をまたいで見つけた癖
             </h2>
           </section>
           {state &&
@@ -884,7 +887,7 @@ export default function App() {
             </div>
           )}
           <section className="sectionhead">
-            <h2>準備したこと</h2>
+            <h2>準備済み</h2>
             <span>{state?.plans.length ?? 0}件</span>
           </section>
           {state?.plans.map((p) => (
@@ -949,10 +952,11 @@ export default function App() {
           <section className="heading">
             <div>
 
-              <h1>設定</h1>
+              <h1>機器</h1>
 
             </div>
           </section>
+          <button className="concept-revisit" onClick={()=>setConcept(true)}>2036年の暮らしへ <span>コンセプトをもう一度見る →</span></button>
           <section className="card settings">
             <h2>
               <Settings2 size={20} /> 記録とプライバシー
@@ -1042,6 +1046,7 @@ export default function App() {
               );
             })}
           </div>
+
           <section className="card settings">
             <h2>機器との連携</h2>
             <p>
@@ -1098,6 +1103,7 @@ export default function App() {
             </details>
           </section>
 
+
           <section className="card settings">
             <h2>データとアカウント</h2>
             <p>
@@ -1153,6 +1159,7 @@ export default function App() {
       </footer>
     </>
   );
+  if (concept) return <Concept onFinish={() => { try { localStorage.setItem("kizuku-concept-v1", "seen"); } catch {} setConcept(false); }} />;
   return (
     <>
       {!state ? (
@@ -1295,7 +1302,7 @@ export default function App() {
                 }}
               >
                 <Icon size={21} />
-                <span>{["今日", "カレンダー", "傾向", "プラン", "設定"][i]}</span>
+                <span>{name}</span>
               </button>
             ))}
           </nav>
@@ -1321,7 +1328,7 @@ export default function App() {
                 ? "記録を見直す"
                 : "記録を追加"
               : modal === "plan"
-                ? "このプランを準備しますか？"
+                ? "こうしておきますね"
                 : "アカウントを削除しますか？"}
           </h2>
           <button aria-label="閉じる" onClick={() => setModal(null)}>

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+test.beforeEach(async ({page}) => { await page.addInitScript(() => localStorage.setItem('kizuku-concept-v1','seen')); });
 test("iPhone demo: five screens, editing, sources, consent and responsive layout", async ({
   page,
 }) => {
@@ -10,17 +11,17 @@ test("iPhone demo: five screens, editing, sources, consent and responsive layout
     .getByRole("button", { name: "デモを見る" })
     .click();
   await expect(
-    page.getByRole("heading", { name: "今日の記録" }),
+    page.getByRole("heading", { name: "今日" }),
   ).toBeVisible();
   await page.screenshot({
     path: "test-results/iphone-home.png",
     fullPage: true,
   });
   for (const name of [
-    "カレンダー",
+    "ライフログ",
     "傾向",
     "プラン",
-    "設定",
+    "機器",
   ]) {
     await page.getByRole("button", { name, exact: true }).click();
     await expect(page.locator("h1")).toBeVisible();
