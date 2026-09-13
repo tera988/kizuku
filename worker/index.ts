@@ -1,3 +1,4 @@
+import {photosRoute} from "./photos";
 import { z } from "zod";
 import {
   defaults,
@@ -61,7 +62,7 @@ async function limited(env: Env, key: string, max: number, seconds: number) {
     .bind(`${key}:${bucket}`, now + seconds, max)
     .first());
 }
-async function body(req: Request) {
+async function body(req: Request, max = 65536) {
   const reader = req.body?.getReader();
   if (!reader) return {};
   let length = 0;
@@ -70,7 +71,7 @@ async function body(req: Request) {
     const { done, value } = await reader.read();
     if (done) break;
     length += value.byteLength;
-    if (length > 65536) {
+    if (length > max) {
       await reader.cancel();
       throw new Error("TOO_LARGE");
     }
@@ -143,7 +144,7 @@ async function state(env: Env, id: string): Promise<State> {
   ]);
   return {
     username: user!.username,
-    settings: settings ? JSON.parse(settings.data) : defaults(),
+    settings: settings ? { ...defaults(), ...JSON.parse(settings.data) } : defaults(),
     entries: entries.results.map((x) => JSON.parse(x.data)),
     plans: plans.results.map((x) => JSON.parse(x.data)),
   };
@@ -240,7 +241,7 @@ export default {
         .get("Cookie")
         ?.match(/(?:^|;\s*)kizuku_session=([a-f0-9-]{72})/)?.[1];
       let id: string | undefined;
-      if (path === "/api/ingest" && bearer) {
+      if ((path === "/api/ingest" || path === "/api/photos/analyze") && bearer) {
         id = (
           await env.DB.prepare(
             "SELECT user_id FROM integration_tokens WHERE hash=?",
@@ -263,6 +264,7 @@ export default {
           { error: "しばらく待ってから、もう一度お試しください。" },
           429,
         );
+      if (path === "/api/photos" || path.startsWith("/api/photos/")) return await photosRoute(req,env,id,!!bearer,body,limited);
       if (path === "/api/state" && req.method === "GET")
         return json(await state(env, id));
       if (path === "/api/export" && req.method === "GET")
@@ -311,6 +313,7 @@ export default {
             enabled: z.record(z.string(), z.boolean()),
             manual: z.boolean(),
             aiConsent: z.boolean(),
+            photoAutoAnalyze: z.boolean().default(false),
           })
           .parse(await body(req));
         await env.DB.prepare(
@@ -353,6 +356,8 @@ export default {
           );
         const entry: Entry = {
           ...parsed,
+          ...(existing?.photoId ? { photoId: existing.photoId } : {}),
+          ...(existing?.mealAnalysis ? { mealAnalysis: existing.mealAnalysis } : {}),
           id: existing?.id ?? crypto.randomUUID(),
           origin: path === "/api/ingest" ? "integration" : "manual",
         };
@@ -368,6 +373,7 @@ export default {
             JSON.stringify(entry),
           )
           .run();
+        if(existing?.photoId) await env.DB.prepare("UPDATE photos SET date=?,time=? WHERE record_id=? AND user_id=?").bind(entry.date,entry.time,entry.id,id).run();
         return json(entry);
       }
       if (path.startsWith("/api/records/") && req.method === "DELETE") {
@@ -448,11 +454,7 @@ export default {
               content: JSON.stringify({
                 records: entries
                   .slice(-180)
-                  .map(({ date, source, values }) => ({
-                    date,
-                    source,
-                    values,
-                  })),
+                  .map(({ date, source, values, mealAnalysis }) => ({date,source,values,mealAnalysis})),
               }),
             },
           ],
@@ -478,7 +480,7 @@ export default {
           400,
         );
       if (e instanceof Error && e.message === "TOO_LARGE")
-        return json({ error: "入力は64KB以内にしてください。" }, 413);
+        return json({ error: "入力が大きすぎます。写真は200KB以内のJPEGに縮小してください。" }, 413);
       return json(
         { error: "処理できませんでした。時間をおいて再試行してください。" },
         503,

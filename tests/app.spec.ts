@@ -7,20 +7,20 @@ test("iPhone demo: five screens, editing, sources, consent and responsive layout
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto("/");
   await page
-    .getByRole("button", { name: "記録せずに、未来の1日を体験" })
+    .getByRole("button", { name: "デモを見る" })
     .click();
   await expect(
-    page.getByRole("heading", { name: /今日のわたしに、\s*気づく。/ }),
+    page.getByRole("heading", { name: "今日の記録" }),
   ).toBeVisible();
   await page.screenshot({
     path: "test-results/iphone-home.png",
     fullPage: true,
   });
   for (const name of [
-    "ライフログ",
-    "わたしの傾向",
-    "先回りプラン",
-    "つながる機器",
+    "カレンダー",
+    "傾向",
+    "プラン",
+    "設定",
   ]) {
     await page.getByRole("button", { name, exact: true }).click();
     await expect(page.locator("h1")).toBeVisible();
@@ -33,9 +33,9 @@ test("iPhone demo: five screens, editing, sources, consent and responsive layout
   await page
     .getByRole("switch", { name: "スマートウォッチのデータを使う" })
     .uncheck();
-  await page.getByRole("button", { name: "先回りプラン", exact: true }).click();
+  await page.getByRole("button", { name: "プラン", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "今夜は、少し早めにひと休み。" }),
+    page.getByRole("heading", { name: "睡眠のプラン" }),
   ).toHaveCount(0);
   await page.getByRole("button", { name: /鶏肉と野菜の蒸し焼き/ }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -43,7 +43,7 @@ test("iPhone demo: five screens, editing, sources, consent and responsive layout
   await expect(
     page.getByRole("heading", { name: "買い物リスト" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "今日のわたし", exact: true }).click();
+  await page.getByRole("button", { name: "今日", exact: true }).click();
   await page.getByRole("button", { name: "今日を記録" }).click();
   await page.locator("input[name=sleep]").fill("7.5");
   await page.getByRole("button", { name: "記録を保存", exact: true }).click();
@@ -158,7 +158,7 @@ test("desktop dashboard", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/");
   await page
-    .getByRole("button", { name: "記録せずに、未来の1日を体験" })
+    .getByRole("button", { name: "デモを見る" })
     .click();
   await page.screenshot({
     path: "test-results/desktop-home.png",
@@ -175,7 +175,7 @@ test('60-second demo can pause, confirm a plan and finish', async ({page}) => {
   await page.clock.install();
   await page.setViewportSize({width:375,height:812});
   await page.goto('/');
-  await page.getByRole('button',{name:'記録せずに、未来の1日を体験'}).click();
+  await page.getByRole('button',{name:'デモを見る'}).click();
   await page.getByRole('button',{name:'1日を再生',exact:true}).click();
   await page.clock.runFor(31000);
   await page.getByRole('button',{name:'一時停止',exact:true}).click();

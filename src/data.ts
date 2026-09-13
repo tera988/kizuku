@@ -1,3 +1,4 @@
+import type { MealAnalysis } from "./photos";
 export const devices = [
   {
     id: "watch",
@@ -194,6 +195,8 @@ export type Entry = {
   note: string;
   estimated: boolean;
   externalId?: string;
+  photoId?: string;
+  mealAnalysis?: MealAnalysis;
 };
 export type Plan = {
   id: string;
@@ -209,6 +212,7 @@ export type Settings = {
   enabled: Record<string, boolean>;
   manual: boolean;
   aiConsent: boolean;
+  photoAutoAnalyze?: boolean;
 };
 export type State = {
   username: string;
@@ -220,6 +224,7 @@ export const defaults = (): Settings => ({
   enabled: Object.fromEntries(devices.map((d) => [d.id, true])),
   manual: true,
   aiConsent: false,
+  photoAutoAnalyze: false,
 });
 export const day = (d = new Date()) =>
   new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo" }).format(d);
@@ -397,7 +402,7 @@ export function generateInsights(s: State): Insight[] {
   const out: Insight[] = [];
   if (r.sleep !== undefined)
     out.push({
-      title: "今夜は、少し早めにひと休み。",
+      title: "睡眠のプラン",
       reason: `${r.date}の睡眠は${r.sleep}時間。寝る前に落ち着く時間をつくる選択肢です。`,
       sources: source(["sleep"]),
       kind: "sleep",
@@ -415,7 +420,7 @@ export function generateInsights(s: State): Insight[] {
     });
   if (r.steps !== undefined)
     out.push({
-      title: "気分転換に、短いお散歩を。",
+      title: "運動のプラン",
       reason: `${r.date}は${r.steps.toLocaleString()}歩${r.meetings !== undefined ? `、会議${r.meetings}件` : ""}。無理のない時間でどうでしょう。`,
       sources: source(["steps", "meetings"]),
       kind: "walk",
@@ -434,7 +439,7 @@ export function generateInsights(s: State): Insight[] {
     });
   if (r.vegetables !== undefined)
     out.push({
-      title: "今夜は、野菜をもうひと皿。",
+      title: "食事のプラン",
       reason: `${r.date}の野菜の記録は${r.vegetables}回。食事の選択肢を用意しました。食材のアレルギーはご自身で確認してください。`,
       sources: source(["vegetables"]),
       kind: "meal",
@@ -459,7 +464,7 @@ export function generateInsights(s: State): Insight[] {
     });
   if (r.conversation !== undefined)
     out.push({
-      title: "誰かと話す、ちいさな時間を。",
+      title: "会話・休憩のプラン",
       reason: `${r.date}の会話時間は${r.conversation}分。話したい気分の日に選べる候補です。`,
       sources: source(["conversation"]),
       kind: "social",
@@ -477,7 +482,7 @@ export function generateInsights(s: State): Insight[] {
     });
   if (es.some((e) => e.source === "booking"))
     out.push({
-      title: "次の健診を、ゆっくり考える。",
+      title: "健診の予定",
       reason: es.filter((e) => e.source === "booking").at(-1)!.title,
       sources: ["booking"],
       kind: "booking",
@@ -495,7 +500,7 @@ export function generateInsights(s: State): Insight[] {
     });
   if ((r.meetings ?? 0) >= 4)
     out.push({
-      title: "予定に、ひと息つける余白を。",
+      title: "予定の調整",
       reason: `会議が${r.meetings}件記録されています。調整できそうな予定を確認してみませんか。`,
       sources: source(["meetings"]),
       kind: "schedule",

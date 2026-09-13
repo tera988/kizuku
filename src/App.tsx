@@ -1,10 +1,13 @@
+import Calendar from "./Calendar";
+import PhotoPanel from "./PhotoPanel";
 import { useState, useEffect, useRef, type FormEvent } from "react";
 import {
   Activity,
   House,
   Clock3,
   ChartNoAxesCombined,
-  Sparkles,
+  ClipboardList,
+  Camera,
   Link2,
   Plus,
   ArrowUpRight,
@@ -67,11 +70,11 @@ function download(name: string, data: string, type = "application/json") {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 const tabs = [
-  ["今日のわたし", House],
-  ["ライフログ", Clock3],
-  ["わたしの傾向", ChartNoAxesCombined],
-  ["先回りプラン", Sparkles],
-  ["つながる機器", Link2],
+  ["今日", House],
+  ["カレンダー", Clock3],
+  ["傾向", ChartNoAxesCombined],
+  ["プラン", ClipboardList],
+  ["設定", Link2],
 ] as const;
 const sourceName = (id: string) =>
   id === "manual" ? "手入力" : (devices.find((d) => d.id === id)?.name ?? id);
@@ -169,6 +172,8 @@ export default function App() {
       option: Insight["options"][number];
     } | null>(null),
     [selectedDate, setSelectedDate] = useState(day()),
+    [photoOpen,setPhotoOpen] = useState(false),
+    [photoDates,setPhotoDates] = useState<string[]>([]),
     [period, setPeriod] = useState("7"),
     [ai, setAI] = useState(""),
     [token, setToken] = useState(""),
@@ -341,7 +346,7 @@ export default function App() {
     <>
       <header className="topbar">
         <div>
-          <span className="eyebrow">YOUR EVERYDAY, A LITTLE BETTER</span>
+
           <div className="date">
             {new Intl.DateTimeFormat("ja-JP", { dateStyle: "full" }).format(
               new Date(),
@@ -373,25 +378,17 @@ export default function App() {
         <>
           <section className="heading">
             <div>
-              <span className="eyebrow green">TODAY'S WELLBEING</span>
-              <h1>
-                今日のわたしに、
-                <br className="mobile" />
-                気づく。
-              </h1>
-              <p>
-                {today
-                  ? "小さな変化を、心地よい毎日につなげよう。"
-                  : "最初の記録から、あなたのペースで。"}
-              </p>
+
+              <h1>今日の記録</h1>
+
             </div>
-            <button
+            <div className="entry-actions"><button disabled={!state?.settings.manual} onClick={()=>{setTab(1);setPhotoOpen(true)}}><Camera size={17}/> 写真を追加</button><button
               className="primary"
               disabled={!state?.settings.manual}
-              onClick={() => openEntry()}
+              onClick={() => {setSelectedDate(day());openEntry()}}
             >
               <Plus size={18} /> 今日を記録
-            </button>
+            </button></div>
           </section>
           <div className="dashboard">
             <section className="card condition">
@@ -415,16 +412,12 @@ export default function App() {
                 </div>
                 <div>
                   <h2>
-                    {score.total === null
-                      ? "まだ、まっさら。"
-                      : score.total >= 75
-                        ? "いいペースです。"
-                        : "今日は、ゆるやかに。"}
+                    {score.total === null ? "未記録" : "参考スコア"}
                   </h2>
                   <p>
                     {score.total === null
                       ? "睡眠や気分を記録すると、今日の目安が見えてきます。"
-                      : "数値にとらわれず、今の自分の感覚も大切に。"}
+                      : "今日入力された項目から算出しています。"}
                   </p>
                 </div>
               </div>
@@ -453,24 +446,10 @@ export default function App() {
                 睡眠・歩数、気分・ストレス、会話時間から算出。未記録項目は除外した参考値で、医学的な評価ではありません。
               </small>
             </section>
-            <section className="card insight-hero">
-              <div className="spark">
-                <Sparkles size={22} />
-              </div>
-              <span className="eyebrow">A LITTLE INSIGHT</span>
-              <h2>{insights[0]?.title ?? "いつもの自分を、少しずつ。"}</h2>
-              <p>
-                {insights[0]?.reason ??
-                  "手入力でも、連携からでも。記録がたまると、自分だけの生活の傾向に気づけます。"}
-              </p>
-              {insights[0] && <Sources ids={insights[0].sources} />}
-              <button className="textbtn" onClick={() => setTab(3)}>
-                自分に合うプランを見る <ArrowUpRight size={17} />
-              </button>
-            </section>
+
           </div>
           <section className="sectionhead">
-            <h2>いつもと、ちょっと違う。</h2>
+            <h2>過去の平均との比較</h2>
             <span>過去30日の記録平均と比較</span>
           </section>
           <div className="metrics">
@@ -509,7 +488,7 @@ export default function App() {
           </div>
           <section className="sectionhead">
             <h2>
-              <Sparkles size={20} /> AI Today
+               今日のプラン
             </h2>
             <span>記録から算出した、今日の選択肢。</span>
           </section>
@@ -520,7 +499,7 @@ export default function App() {
                 key={i.kind}
                 onClick={() => setTab(3)}
               >
-                <span className="number">0{n + 1}</span>
+
                 <div>
                   <h3>{i.title}</h3>
                   <p>{i.reason}</p>
@@ -545,9 +524,9 @@ export default function App() {
           </div>
           <section className="replay">
             <div>
-              <span className="eyebrow">A DAY IN THE FUTURE</span>
-              <h2>記録しない、1日を体験。</h2>
-              <p>9つの情報源がつながる未来を、60秒で。</p>
+
+              <h2>デモ再生</h2>
+              <p>機器連携の動きを60秒で確認できます。</p>
             </div>
             <button
               onClick={() => {
@@ -628,18 +607,20 @@ export default function App() {
         <>
           <section className="heading">
             <div>
-              <span className="eyebrow green">LIFE LOG</span>
-              <h1>暮らしの、足あと。</h1>
-              <p>記録の出どころも、いつでも見える。</p>
+
+              <h1>カレンダー</h1>
+
             </div>
-            <button
+            <div className="entry-actions"><button disabled={!state?.settings.manual} onClick={()=>{setTab(1);setPhotoOpen(true)}}><Camera size={17}/> 写真を追加</button><button
               className="primary"
               disabled={!state?.settings.manual}
               onClick={() => openEntry()}
             >
               <Plus size={18} /> 記録する
-            </button>
+            </button></div>
           </section>
+          <Calendar entries={all} plans={state!.plans} selected={selectedDate} onSelect={setSelectedDate} photoDates={photoDates}/>
+          <PhotoPanel state={state!} demo={demo} date={selectedDate} open={photoOpen} onClose={()=>setPhotoOpen(false)} showList onSaved={async()=>{setState(await api<State>("state"))}} onDates={setPhotoDates} onSettings={()=>setTab(4)}/>
           <div className="dateselect">
             <button
               aria-label="前の日"
@@ -656,7 +637,7 @@ export default function App() {
               type="date"
               max={day()}
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              onChange={(e) => {if(e.target.value)setSelectedDate(e.target.value)}}
             />
             <button
               aria-label="次の日"
@@ -705,6 +686,7 @@ export default function App() {
                       ))}
                     </div>
                     {e.note && <p>{e.note}</p>}
+                    {e.mealAnalysis&&<details className="meal-details"><summary>写真からの推定を見る</summary><p>{e.mealAnalysis.foods.join("・")}</p>{e.mealAnalysis.caloriesMin!==null&&<p>推定 {e.mealAnalysis.caloriesMin}〜{e.mealAnalysis.caloriesMax} kcal</p>}{e.mealAnalysis.observations.map(t=><p key={t}>{t}</p>)}{e.mealAnalysis.suggestions.map(t=><p key={t}>{t}</p>)}<small>{e.mealAnalysis.uncertainty}</small></details>}
                     <button
                       className="textbtn"
                       disabled={!state?.settings.manual}
@@ -726,9 +708,9 @@ export default function App() {
         <>
           <section className="heading">
             <div>
-              <span className="eyebrow green">YOUR PATTERNS</span>
-              <h1>わたしを、知っていく。</h1>
-              <p>日々の点がつながると、見えてくること。</p>
+
+              <h1>記録の傾向</h1>
+
             </div>
             <select
               aria-label="分析期間"
@@ -796,7 +778,7 @@ export default function App() {
           </div>
           <section className="sectionhead">
             <h2>
-              <Sparkles size={20} /> データをまたいで、気づいたこと
+               記録の比較
             </h2>
           </section>
           {state &&
@@ -820,9 +802,9 @@ export default function App() {
           <section className="card aibox">
             <div className="cardhead">
               <h2>
-                <Sparkles size={20} /> AIとふりかえる
+                 記録をふりかえる
               </h2>
-              <span className="tag">Workers AI</span>
+              <span className="tag">AIによる参考情報</span>
             </div>
             <p>直近30日の数値と出どころをもとに、生活の選択肢を考えます。</p>
             <button
@@ -835,7 +817,7 @@ export default function App() {
                 })
               }
             >
-              {busy ? "分析しています…" : "AIで分析する"}
+              {busy ? "分析しています…" : "記録を分析する"}
             </button>
             {demo ? (
               <small>
@@ -856,9 +838,9 @@ export default function App() {
         <>
           <section className="heading">
             <div>
-              <span className="eyebrow green">YOUR NEXT LITTLE STEP</span>
-              <h1>選ぶだけで、次の一歩。</h1>
-              <p>決めるのは、いつもあなた。</p>
+
+              <h1>プラン</h1>
+
             </div>
           </section>
           <div className="plangrid">
@@ -870,7 +852,7 @@ export default function App() {
                   ) : i.kind === "walk" ? (
                     <Footprints />
                   ) : (
-                    <Sparkles />
+                    <ClipboardList />
                   )}
                 </span>
                 <h2>{i.title}</h2>
@@ -966,9 +948,9 @@ export default function App() {
         <>
           <section className="heading">
             <div>
-              <span className="eyebrow green">CONNECTED, BY CHOICE</span>
-              <h1>つながる。自分の意思で。</h1>
-              <p>使うデータも、止めるタイミングも、あなたが選べます。</p>
+
+              <h1>設定</h1>
+
             </div>
           </section>
           <section className="card settings">
@@ -992,15 +974,15 @@ export default function App() {
             </label>
             <label className="switchrow">
               <div>
-                <strong>Workers AIで分析する</strong>
+                <strong>AI分析を使う</strong>
                 <p>
-                  有効な機器の直近30日の数値・日付・出どころをCloudflare Workers
-                  AIに送信します。メモ本文は送信しません。
+                  直近30日の数値・食事の推定結果・日付・出どころをCloudflare Workers AIに送信します。写真の分析では選択した画像を送信します。メモ本文は送信しません。
                 </p>
               </div>
               <input
                 role="switch"
                 type="checkbox"
+                aria-label="AI分析を使う"
                 checked={state?.settings.aiConsent}
                 disabled={busy || demo}
                 onChange={(e) =>
@@ -1011,9 +993,10 @@ export default function App() {
                 }
               />
             </label>
+            <label className="switchrow"><div><strong>連携から届く写真を自動分析</strong><p>スマートグラス等から専用APIに届いた写真を分析し、確認待ちとして保存します。機器側の連携設定が必要です。</p></div><input aria-label="連携写真の自動分析" role="switch" type="checkbox" checked={state?.settings.photoAutoAnalyze??false} disabled={busy||demo||!state?.settings.aiConsent} onChange={e=>saveSettings({...state!.settings,photoAutoAnalyze:e.target.checked})}/></label>
             <p>
               <ShieldCheck size={18} />{" "}
-              他人の顔・音声は収集しません。記録はアカウントごとに分離し、本人にだけ表示します。
+              人物の顔や私的な情報が写らない写真を選んでください。音声は収集しません。記録と写真は本人のアカウントだけに表示します。
             </p>
           </section>
           <div className="devicegrid">
@@ -1060,7 +1043,7 @@ export default function App() {
             })}
           </div>
           <section className="card settings">
-            <h2>自動連携を、ここから。</h2>
+            <h2>機器との連携</h2>
             <p>
               iPhoneのショートカットや対応プログラムから、専用の受信APIへ送信できます。AppleヘルスケアやGoogleカレンダーとの直接接続は、まだありません。
             </p>
@@ -1114,17 +1097,7 @@ export default function App() {
               )}
             </details>
           </section>
-          <section className="future card">
-            <span className="eyebrow">NOW → NEXT</span>
-            <h2>
-              今日の手入力が、
-              <br />
-              いつか、あたりまえに変わる。
-            </h2>
-            <p>
-              いまは、自分のペースで記録する。これからは、暮らしのデータが自然につながる。AIが変化に気づき、選ぶだけで次の一歩を用意する未来へ。
-            </p>
-          </section>
+
           <section className="card settings">
             <h2>データとアカウント</h2>
             <p>
@@ -1175,7 +1148,7 @@ export default function App() {
         </>
       )}
       <footer>
-        <Leaf size={15} /> KIZUKU <span>気づくことから、心地よい毎日へ。</span>
+        <Leaf size={15} /> KIZUKU
         <small>医療的な診断・治療を行うアプリではありません。</small>
       </footer>
     </>
@@ -1192,42 +1165,23 @@ export default function App() {
           </div>
           <div className="welcomegrid">
             <div>
-              <span className="eyebrow green">体・心・つながり</span>
-              <h1>
-                今日のわたしに、
-                <br />
-                気づく。
-              </h1>
-              <p className="lead">
-                小さな記録から、いつもの自分が見えてくる。
-                <br />
-                AIと一緒に、次の一歩を用意しよう。
-              </p>
-              <div className="welcomeicons">
-                <span>
-                  <Activity />体
-                </span>
-                <span>
-                  <Heart />心
-                </span>
-                <span>
-                  <Users />
-                  つながり
-                </span>
-              </div>
+
+              <h1>生活の記録</h1>
+              <p className="lead">睡眠、食事、気分などを記録して、日々の変化を確認できます。</p>
+
               <button onClick={enterDemo}>
-                <Play size={17} /> 記録せずに、未来の1日を体験
+                <Play size={17} /> デモを見る
               </button>
               <small>
                 60日分の架空データで試せます。実データは保存しません。
               </small>
             </div>
             <section className="card auth">
-              <span className="eyebrow green">MY KIZUKU</span>
+
               <h2>
                 {auth === "register"
-                  ? "あなたの毎日を、ここから。"
-                  : "おかえりなさい。"}
+                  ? "アカウント作成"
+                  : "ログイン"}
               </h2>
               <p>記録はあなただけに。iPhoneでも同期できます。</p>
               {loading ? (
@@ -1284,7 +1238,7 @@ export default function App() {
                       : "初めての方はアカウント作成"}
                   </button>
                   <small>
-                    健康に関する情報をD1に保存します。AIへの送信は設定で選択できます。
+                    記録はアカウントに保存します。AI分析は設定で選択できます。
                   </small>
                 </form>
               )}
@@ -1307,7 +1261,7 @@ export default function App() {
               </span>
               KIZUKU
             </a>
-            <span className="sidecaption">わたしと、暮らしのあいだ。</span>
+
             <nav>
               {tabs.map(([name, Icon], i) => (
                 <button
@@ -1325,15 +1279,7 @@ export default function App() {
                 </button>
               ))}
             </nav>
-            <div className="sidebottom">
-              <ShieldCheck size={20} />
-              <p>
-                あなたのためのデータ。
-                <br />
-                あなたが選ぶ、毎日。
-              </p>
-              <small>KIZUKU / キヅク</small>
-            </div>
+
           </aside>
           <main>{main}</main>
           <nav className="bottomnav">
@@ -1349,7 +1295,7 @@ export default function App() {
                 }}
               >
                 <Icon size={21} />
-                <span>{["今日", "ログ", "傾向", "プラン", "機器"][i]}</span>
+                <span>{["今日", "カレンダー", "傾向", "プラン", "設定"][i]}</span>
               </button>
             ))}
           </nav>
@@ -1373,7 +1319,7 @@ export default function App() {
             {modal === "entry"
               ? edit
                 ? "記録を見直す"
-                : "今日を、少しだけ記録。"
+                : "記録を追加"
               : modal === "plan"
                 ? "このプランを準備しますか？"
                 : "アカウントを削除しますか？"}
